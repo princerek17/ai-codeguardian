@@ -12,7 +12,7 @@ export type CodeReview = {
   reviewType: string;
   originalCode: string;
 
-  // ✅ NEW: optional user-provided context/problem
+  // optional user-provided context/problem
   problem?: string | null;
 
   summary: string;
@@ -20,15 +20,24 @@ export type CodeReview = {
   suggestedCode: string;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+/**
+ * ✅ Best practice for Next.js deployments:
+ * - If NEXT_PUBLIC_API_BASE_URL is set (Vercel env var), use it.
+ * - Otherwise, fall back to same-origin "/api" (useful if you later proxy via Next/Vercel).
+ *
+ * Examples:
+ *  - "https://your-backend.onrender.com"
+ *  - "http://localhost:4000"
+ */
+function getBaseUrl(): string {
+  const env = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
 
-function assertBaseUrl(): string {
-  if (!BASE_URL) {
-    throw new Error(
-      "NEXT_PUBLIC_API_BASE_URL is not set. Add it to frontend/.env.local and restart `npm run dev`.",
-    );
-  }
-  return BASE_URL;
+  // If provided, normalize by removing trailing slash
+  if (env) return env.replace(/\/+$/, "");
+
+  // Fallback: same-origin proxy path (optional strategy)
+  // If you are NOT using a proxy route, set NEXT_PUBLIC_API_BASE_URL on Vercel.
+  return "/api";
 }
 
 async function readError(res: Response) {
@@ -44,66 +53,55 @@ async function readError(res: Response) {
   return res.text();
 }
 
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+
+  if (!res.ok) {
+    const err = await readError(res);
+    throw new Error(`${init?.method ?? "GET"} ${url} failed (${res.status}): ${err}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
 export async function createCodeReview(input: {
   language: string;
   reviewType: string;
   code: string;
-
-  // ✅ NEW
   problem?: string;
 }): Promise<CodeReview> {
-  const base = assertBaseUrl();
-  const res = await fetch(`${base}/code-reviews`, {
+  const base = getBaseUrl();
+  return requestJson<CodeReview>(`${base}/code-reviews`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-
-  if (!res.ok) {
-    const err = await readError(res);
-    throw new Error(`POST /code-reviews failed (${res.status}): ${err}`);
-  }
-
-  return res.json();
 }
 
 /**
- * ✅ UPDATED: optional pagination support for the future History page.
- * - If your backend doesn't support limit/offset yet, call listCodeReviews() with no args.
- * - Later, your /history page can call: listCodeReviews({ limit: 10, offset: 0 })
+ * Pagination support:
+ * - listCodeReviews() -> GET /code-reviews
+ * - listCodeReviews({limit, offset}) -> GET /code-reviews?limit=..&offset=..
  */
 export async function listCodeReviews(params?: {
   limit?: number;
   offset?: number;
 }): Promise<CodeReview[]> {
-  const base = assertBaseUrl();
+  const base = getBaseUrl();
 
   const qs = new URLSearchParams();
   if (params?.limit != null) qs.set("limit", String(params.limit));
   if (params?.offset != null) qs.set("offset", String(params.offset));
 
-  const url = qs.toString() ? `${base}/code-reviews?${qs.toString()}` : `${base}/code-reviews`;
+  const url = qs.toString()
+    ? `${base}/code-reviews?${qs.toString()}`
+    : `${base}/code-reviews`;
 
-  const res = await fetch(url, { cache: "no-store" });
-
-  if (!res.ok) {
-    const err = await readError(res);
-    throw new Error(`GET /code-reviews failed (${res.status}): ${err}`);
-  }
-
-  return res.json();
+  // no-store ensures fresh data in App Router / server rendering scenarios
+  return requestJson<CodeReview[]>(url, { cache: "no-store" });
 }
 
 export async function getCodeReview(id: number): Promise<CodeReview> {
-  const base = assertBaseUrl();
-  const res = await fetch(`${base}/code-reviews/${id}`, {
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const err = await readError(res);
-    throw new Error(`GET /code-reviews/${id} failed (${res.status}): ${err}`);
-  }
-
-  return res.json();
+  const base = getBaseUrl();
+  return requestJson<CodeReview>(`${base}/code-reviews/${id}`, { cache: "no-store" });
 }
