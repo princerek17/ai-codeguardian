@@ -3,9 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CodeReviewController } from './code-review.controller';
 import { CodeReviewService } from './code-review.service';
 import { CodeReview } from './entities/code-review.entity';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CodeReview])],
+  imports: [AiModule, TypeOrmModule.forFeature([CodeReview])],
   controllers: [CodeReviewController],
   providers: [CodeReviewService],
 })
