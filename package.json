@@ -1,0 +1,5 @@
+{
+  "name": "ai-codeguardian",
+  "private": true,
+  "workspaces": ["backend", "frontend"]
+}
