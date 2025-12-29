@@ -5,29 +5,43 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // ✅ Allow local dev + your Vercel site.
-  // Safer: allow all in dev, strict in prod.
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    process.env.FRONTEND_URL, // set this in Railway to your Vercel URL
-  ].filter(Boolean) as string[];
+  // Always listen on Railway's assigned port (local fallback = 3001)
+  const port = process.env.PORT ? Number(process.env.PORT) : 3001;
+
+  // Allowed origins (local + your Vercel URL from env)
+  const allowedOrigins = new Set(
+    [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.FRONTEND_URL?.trim(), // e.g. https://your-app.vercel.app
+    ].filter(Boolean) as string[],
+  );
 
   app.enableCors({
     origin: (origin, callback) => {
-      // allow non-browser clients (like curl/postman) with no origin
+      // Allow non-browser requests (curl/postman) that send no Origin header
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      // Allow exact matches
+      if (allowedOrigins.has(origin)) return callback(null, true);
+
+      // Helpful error for debugging
       return callback(new Error(`CORS blocked for origin: ${origin}`), false);
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: false,
+    }),
+  );
 
-  // ✅ Railway sets PORT dynamically
-  const port = Number(process.env.PORT) || 3001;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 }
 
 void bootstrap();
