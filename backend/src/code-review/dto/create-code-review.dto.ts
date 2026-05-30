@@ -1,21 +1,46 @@
-import { IsIn, IsNotEmpty, IsString } from 'class-validator';
+import { IsIn, IsString, MinLength } from 'class-validator';
+
+export const SUPPORTED_LANGUAGES = [
+  'auto',
+
+  'python',
+  'javascript',
+  'typescript',
+
+  'java',
+  'c',
+  'cpp',
+  'csharp',
+
+  'go',
+  'rust',
+
+  'php',
+  'ruby',
+
+  'swift',
+  'kotlin',
+  'dart',
+
+  'sql',
+  'html',
+  'css',
+
+  'bash',
+  'powershell',
+
+  'yaml',
+  'json',
+] as const;
 
 export class CreateCodeReviewDto {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  @IsString()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  @IsIn(['python', 'javascript', 'typescript'])
-  language: string;
+  @IsIn(SUPPORTED_LANGUAGES)
+  language: (typeof SUPPORTED_LANGUAGES)[number];
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   @IsString()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  @IsIn(['general', 'security', 'performance', 'clean_code'])
   reviewType: string;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   @IsString()
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  @IsNotEmpty()
+  @MinLength(1)
   code: string;
 }
